@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>金融科技 Python 入門測驗</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', 'Helvetica Neue', 'Helvetica', 'Arial', '微軟正黑體', 'Microsoft JhengHei', sans-serif;
+            background-color: #f8fafc; /* light slate-50 */
+            color: #334155; /* slate-700 */
+        }
+        .quiz-option:hover {
+            background-color: #f1f5f9; /* light slate-100 */
+        }
+        .quiz-option input[type="radio"]:checked + span {
+            font-weight: 600;
+            color: #1d4ed8; /* blue-700 */
+        }
+        .loading-spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-top: 4px solid #3b82f6; /* Blue */
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 0.5rem;
+            width: 90%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+        }
+        .modal-close-button {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen py-8">
+
+    <div class="container mx-auto p-4 sm:p-6 md:p-8 max-w-2xl">
+        <section id="quiz" class="mb-16">
+            <h2 class="text-3xl sm:text-4xl font-bold mb-6 text-center text-slate-900">隨堂小測驗</h2>
+            <div class="bg-white p-6 sm:p-8 rounded-xl shadow-lg">
+                <div id="quiz-question-container">
+                    <p class="text-lg font-semibold mb-4" id="quiz-question"></p>
+                    <div class="space-y-3" id="quiz-options"></div>
+                </div>
+                <div id="quiz-feedback" class="mt-4 p-4 rounded-md hidden text-sm sm:text-base"></div>
+                
+                <button id="quiz-submit" class="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-md hover:bg-blue-700 transition-colors mt-6 text-base sm:text-lg">檢查答案</button>
+                
+                <div class="flex flex-col sm:flex-row gap-2 mt-2">
+                    <button id="quiz-next" class="w-full sm:w-1/2 bg-slate-600 text-white font-bold py-3 px-4 rounded-md hover:bg-slate-700 transition-colors hidden text-base sm:text-lg">下一題</button>
+                    <button id="generate-question" class="w-full sm:w-1/2 bg-purple-600 text-white font-bold py-3 px-4 rounded-md hover:bg-purple-700 transition-colors hidden text-base sm:text-lg flex items-center justify-center">
+                        <span id="generate-spinner" class="loading-spinner mr-2 hidden"></span>
+                        <span>生成新題目 ✨</span>
+                    </button>
+                    <button id="detailed-explanation" class="w-full sm:w-1/2 bg-indigo-600 text-white font-bold py-3 px-4 rounded-md hover:bg-indigo-700 transition-colors hidden text-base sm:text-lg flex items-center justify-center">
+                        <span id="explanation-spinner" class="loading-spinner mr-2 hidden"></span>
+                        <span>詳細解釋 ✨</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- 詳細解釋Modal -->
+    <div id="explanation-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <button class="modal-close-button" onclick="closeModal()">&times;</button>
+            <h3 class="text-xl font-bold mb-4 text-slate-900">詳細解釋</h3>
+            <div id="modal-explanation-content" class="text-slate-700 leading-relaxed">
+                <!-- AI 生成的詳細解釋將在此處顯示 -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 初始測驗數據
+        const quizData = [
+            {
+                question: "在 Python 中，`150.75` 這個值的資料型態是什麼？",
+                options: ["int (整數)", "str (字串)", "float (浮點數)", "bool (布林值)"],
+                answer: "float (浮點數)",
+                explanation: "帶有小數點的數字是浮點數(float)。整數(int)則沒有小數點。"
+            },
+            {
+                question: "程式碼 `print('AAPL', 'TSLA', sep=' & ')` 的輸出結果會是什麼？",
+                options: ["AAPL TSLA", "AAPL&TSLA", "AAPL & TSLA", "執行錯誤"],
+                answer: "AAPL & TSLA",
+                explanation: "`sep=' & '` 參數會將預設的空格分隔符替換為 ' & '。"
+            },
+            {
+                question: "如果使用者透過 `input()` 函數輸入了數字 `50`，程式接收到的值的資料型態是什麼？",
+                options: ["int (整數)", "float (浮點數)", "str (字串)", "number (數字)"],
+                answer: "str (字串)",
+                explanation: "`input()` 函數總是返回字串類型，即使使用者輸入的是數字。我們需要用 `int()` 或 `float()` 進行轉換才能做數學運算。"
+            },
+            {
+                question: "哪一個運算符是用來計算次方 (冪運算) 的？例如計算 5 的 2 次方。",
+                options: ["^", "pow(5,2)", "**", "!"],
+                answer: "**",
+                explanation: "在 Python 中，`**` 是冪運算符。`5 ** 2` 的結果是 25。"
+            },
+            {
+                question: "程式碼 `print('存款成功', end='...')` 的預期輸出是什麼？",
+                options: ["存款成功", "存款成功...", "存款成功\\x0A...", "執行錯誤"],
+                answer: "存款成功...",
+                explanation: "`end='...'` 會讓 `print()` 函數在內容後面緊接著打印三個點，而不是換行。"
+            },
+            {
+                question: "為了在螢幕上顯示投資組合的總價值，您應該使用哪一個 Python 函數？",
+                options: ["input()", "display()", "print()", "show()"],
+                answer: "print()",
+                explanation: "`print()` 函數是 Python 中用於在控制台輸出資訊（包括數字和文字）的標準內建函數。"
+            },
+            {
+                question: "哪個是合法的 Python 變數名稱，可以用來儲存「客戶姓名」？",
+                options: ["客戶姓名", "client-name", "client_name", "1stClient"],
+                answer: "client_name",
+                explanation: "變數名稱不能以數字開頭，也不能包含空格或特殊符號（除了底線）。"
+            },
+            {
+                question: "您將股票價格 `175.80` 儲存到一個變數中。這個變數的資料型態是什麼？",
+                options: ["int", "str", "float", "decimal"],
+                answer: "float",
+                explanation: "帶有小數點的數字，無論大小，都被視為浮點數(float)。"
+            },
+            {
+                question: "程式碼 `result = 1000 * (1 + 0.05)**3` 執行後，變數 `result` 的值會是什麼？",
+                options: ["1150.0", "1157.625", "115.7625", "3000.0"],
+                answer: "1157.625",
+                explanation: "此計算正確地應用了複利公式，其中本金為1000，利率為0.05，年數為3。"
+            },
+            {
+                question: "要讓程式從使用者那裡獲取一個數字，並用這個數字來進行數學計算，最恰當的程式碼組合是？",
+                options: ["num = input(\"請輸入數字：\")\\x0Aresult = num * 2", "num = int(input(\"請輸入數字：\"))\\x0Aresult = num * 2", "num = input(int(\"請輸入數字：\"))\\x0Aresult = num * 2", "num = get_number(\"請輸入數字：\")\\x0Aresult = num * 2"],
+                answer: "num = int(input(\"請輸入數字：\"))\\x0Aresult = num * 2",
+                explanation: "這行代碼正確地使用 `int()` 將 `input()` 返回的字串轉換為整數，然後再進行數學乘法運算。"
+            },
+            {
+                question: "以下哪種資料型態最適合儲存客戶的唯一帳號 ID (例如：'CUST12345')？",
+                options: ["int", "float", "str", "id_type"],
+                answer: "str",
+                explanation: "字串 (str) 最適合儲存包含文字和數字組合的帳號 ID，即使是純數字的 ID，也可以作為字串儲存。"
+            },
+            {
+                question: "程式碼 `print('存款', '提款', '利息', sep=' | ')` 的輸出結果是什麼？",
+                options: ["存款 提款 利息", "存款|提款|利息", "存款 | 提款 | 利息", "執行錯誤"],
+                answer: "存款 | 提款 | 利息",
+                explanation: "`sep=' | '` 會讓每個項目之間都用「空格、豎線、空格」來分隔。"
+            },
+            {
+                question: "在 Python 中， `# 這是一個註解` 這行程式碼的作用是什麼？",
+                options: ["它會作為程式的輸出顯示在畫面上。", "它會定義一個名為「這是一個註解」的變數。", "它會導致程式碼出錯，因為包含中文字符。", "它用於解釋程式碼，Python 直譯器會忽略這行。"],
+                answer: "它用於解釋程式碼，Python 直譯器會忽略這行。",
+                explanation: "以 `#` 開頭的行是單行註解，用於提供程式碼的說明，Python 會在執行時跳過它們。"
+            },
+            {
+                question: "計算投資組合總價值最符合「處理 (Processing)」階段的範例是？",
+                options: ["從鍵盤輸入每支股票的價格。", "將每支股票的價格乘以其持有的股數，然後將所有結果加總。", "在螢幕上顯示計算出的總價值。", "儲存股票代碼到檔案中。"],
+                answer: "將每支股票的價格乘以其持有的股數，然後將所有結果加總。",
+                explanation: "這是一個明確的計算過程，符合「處理 (Processing)」階段的定義。"
+            }
+        ];
+
+        let currentQuestionIndex = 0;
+        const questionEl = document.getElementById('quiz-question');
+        const optionsEl = document.getElementById('quiz-options');
+        const feedbackEl = document.getElementById('quiz-feedback');
+        const submitBtn = document.getElementById('quiz-submit');
+        const nextBtn = document.getElementById('quiz-next');
+        const generateQuestionBtn = document.getElementById('generate-question');
+        const detailedExplanationBtn = document.getElementById('detailed-explanation');
+        const generateSpinner = document.getElementById('generate-spinner');
+        const explanationSpinner = document.getElementById('explanation-spinner');
+        const explanationModal = document.getElementById('explanation-modal');
+        const modalExplanationContent = document.getElementById('modal-explanation-content');
+
+        // 載入題目功能
+        function loadQuestion() {
+            const currentQuestion = quizData[currentQuestionIndex];
+            questionEl.textContent = currentQuestion.question;
+            optionsEl.innerHTML = '';
+            currentQuestion.options.forEach((option, index) => {
+                optionsEl.innerHTML += `
+                    <label class="quiz-option block p-3 border border-slate-300 rounded-md cursor-pointer transition-colors">
+                        <input type="radio" name="quiz" value="${option}" class="mr-2">
+                        <span>${option}</span>
+                    </label>
+                `;
+            });
+            submitBtn.disabled = false;
+            submitBtn.classList.remove('hidden');
+            nextBtn.classList.add('hidden');
+            generateQuestionBtn.classList.add('hidden'); // 隱藏生成新題目按鈕直到回答或跳過
+            detailedExplanationBtn.classList.add('hidden'); // 隱藏詳細解釋按鈕
+            feedbackEl.classList.add('hidden');
+            // 重置選中的答案
+            const radios = document.querySelectorAll('input[name="quiz"]');
+            radios.forEach(radio => radio.checked = false);
+        }
+        
+        // 檢查答案功能
+        submitBtn.addEventListener('click', () => {
+            const selectedOption = document.querySelector('input[name="quiz"]:checked');
+            if (!selectedOption) {
+                // 使用簡單的 alert 進行測驗互動，符合之前對簡單訊息的指示
+                feedbackEl.textContent = '請選擇一個答案！';
+                feedbackEl.className = 'mt-4 p-4 rounded-md text-yellow-800 bg-yellow-100 block'; // 顯示為黃色警告
+                return;
+            }
+            
+            const userAnswer = selectedOption.value;
+            const currentQuestion = quizData[currentQuestionIndex];
+            const correctAnswer = currentQuestion.answer;
+            const explanation = currentQuestion.explanation;
+            
+            feedbackEl.classList.remove('hidden');
+            submitBtn.classList.add('hidden');
+            
+            if (userAnswer === correctAnswer) {
+                feedbackEl.textContent = `✅ 正確！ ${explanation}`;
+                feedbackEl.className = 'mt-4 p-4 rounded-md text-green-800 bg-green-100';
+            } else {
+                feedbackEl.textContent = `❌ 錯誤。正確答案是「${correctAnswer}」。 ${explanation}`;
+                feedbackEl.className = 'mt-4 p-4 rounded-md text-red-800 bg-red-100';
+            }
+            
+            // 顯示下一題或完成測驗按鈕
+            if (currentQuestionIndex < quizData.length - 1) {
+                nextBtn.classList.remove('hidden');
+            } else {
+                nextBtn.textContent = '測驗完成！';
+                nextBtn.classList.remove('hidden');
+                nextBtn.disabled = true; // 如果是最後一題則禁用
+            }
+            generateQuestionBtn.classList.remove('hidden'); // 顯示生成新題目按鈕
+            detailedExplanationBtn.classList.remove('hidden'); // 顯示詳細解釋按鈕
+        });
+        
+        // 下一題功能
+        nextBtn.addEventListener('click', () => {
+            currentQuestionIndex++;
+            if (currentQuestionIndex < quizData.length) {
+                loadQuestion();
+            } else {
+                // 所有題目都已回答完畢
+                feedbackEl.textContent = '測驗已完成！所有題目都已回答。您可以點擊「生成新題目」來練習更多題目。';
+                feedbackEl.className = 'mt-4 p-4 rounded-md text-blue-800 bg-blue-100 block';
+                currentQuestionIndex = 0; // 重置以重新開始測驗
+                loadQuestion(); // 載入第一道題
+                nextBtn.classList.add('hidden'); // 隱藏下一題按鈕
+                generateQuestionBtn.classList.remove('hidden'); // 確保生成新題目按鈕可見
+            }
+        });
+
+        // Gemini API 呼叫函數
+        async function callGeminiAPI(prompt, isJson = false) {
+            let chatHistory = [{ role: "user", parts: [{ text: prompt }] }];
+            const payload = { contents: chatHistory };
+
+            if (isJson) {
+                payload.generationConfig = {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: "OBJECT",
+                        properties: {
+                            "question": { "type": "STRING" },
+                            "options": {
+                                "type": "ARRAY",
+                                "items": { "type": "STRING" }
+                            },
+                            "answer": { "type": "STRING" },
+                            "explanation": { "type": "STRING" }
+                        },
+                        "propertyOrdering": ["question", "options", "answer", "explanation"]
+                    }
+                };
+            }
+
+            const apiKey = ""; // Canvas 會在運行時提供 API key
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+
+                if (result.candidates && result.candidates.length > 0 &&
+                    result.candidates[0].content && result.candidates[0].content.parts &&
+                    result.candidates[0].content.parts.length > 0) {
+                    const textResponse = result.candidates[0].content.parts[0].text;
+                    if (isJson) {
+                        try {
+                            return JSON.parse(textResponse);
+                        } catch (e) {
+                            console.error("JSON 解析錯誤:", e);
+                            return null;
+                        }
+                    }
+                    return textResponse;
+                } else {
+                    console.error("Gemini API 回應結構異常:", result);
+                    return null;
+                }
+            } catch (error) {
+                console.error("呼叫 Gemini API 失敗:", error);
+                return null;
+            }
+        }
+
+        // 生成新題目功能
+        generateQuestionBtn.addEventListener('click', async () => {
+            generateSpinner.classList.remove('hidden');
+            generateQuestionBtn.disabled = true;
+            nextBtn.disabled = true; // 禁用下一題按鈕以防在生成時點擊
+            detailedExplanationBtn.disabled = true; // 禁用詳細解釋按鈕
+
+            const prompt = `請為金融科技Python入門課程的第一堂課，隨機生成一個關於 Python 基本語法、變數、數據類型、print() 或 input() 函數的多選題。問題應有四個選項，並明確指出正確答案和簡短解釋。以 JSON 格式返回，例如：
+            {
+                "question": "Python中用於顯示輸出資訊的函數是什麼？",
+                "options": ["input()", "read()", "print()", "display()"],
+                "answer": "print()",
+                "explanation": "print() 用於在控制台顯示資訊。"
+            }
+            請確保問題和解釋的語言是繁體中文。`;
+
+            const newQuestion = await callGeminiAPI(prompt, true);
+
+            if (newQuestion && newQuestion.question && newQuestion.options && newQuestion.options.length === 4 && newQuestion.answer && newQuestion.explanation) {
+                quizData.push(newQuestion); // 將新題目添加到數據中
+                currentQuestionIndex = quizData.length - 1; // 跳轉到新題目
+                loadQuestion();
+                feedbackEl.classList.add('hidden'); // 清除之前的反饋
+            } else {
+                feedbackEl.textContent = '無法生成符合格式的新題目，請重試。';
+                feedbackEl.className = 'mt-4 p-4 rounded-md text-red-800 bg-red-100 block';
+            }
+
+            generateSpinner.classList.add('hidden');
+            generateQuestionBtn.disabled = false;
+            nextBtn.disabled = false; // 重新啟用下一題按鈕
+            detailedExplanationBtn.disabled = false; // 重新啟用詳細解釋按鈕
+        });
+
+        // 詳細解釋功能
+        detailedExplanationBtn.addEventListener('click', async () => {
+            explanationSpinner.classList.remove('hidden');
+            detailedExplanationBtn.disabled = true;
+            generateQuestionBtn.disabled = true; // 禁用生成新題目按鈕
+
+            const currentQuestion = quizData[currentQuestionIndex];
+            const prompt = `請針對以下 Python 入門測驗問題和正確答案，提供更詳細、更深入的解釋，適合初學者理解。請從概念、應用情境等方面進行闡述，並使用繁體中文。
+            問題：${currentQuestion.question}
+            正確答案：${currentQuestion.answer}
+            簡短解釋：${currentQuestion.explanation}
+            `;
+
+            const detailedExplan = await callGeminiAPI(prompt);
+
+            if (detailedExplan) {
+                modalExplanationContent.textContent = detailedExplan;
+                explanationModal.classList.remove('hidden');
+            } else {
+                feedbackEl.textContent = '無法獲取詳細解釋，請稍後再試。';
+                feedbackEl.className = 'mt-4 p-4 rounded-md text-red-800 bg-red-100 block';
+            }
+
+            explanationSpinner.classList.add('hidden');
+            detailedExplanationBtn.disabled = false;
+            generateQuestionBtn.disabled = false; // 重新啟用生成新題目按鈕
+        });
+
+        // 關閉詳細解釋 Modal
+        function closeModal() {
+            explanationModal.classList.add('hidden');
+            modalExplanationContent.textContent = ''; // 清空內容
+        }
+        
+        // 初始載入第一個問題
+        loadQuestion();
+    </script>
+</body>
+</html>
